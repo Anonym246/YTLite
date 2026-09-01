@@ -1,0 +1,1056 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0b0d12">
+<title>Pixel Survivors</title>
+<style>
+  :root{
+    --bg:#0b0d12;
+    --panel:#161a24;
+    --panel-2:#1e2430;
+    --border:#2c3444;
+    --text:#eaf0ff;
+    --muted:#8b96ab;
+    --accent:#5be37a;
+    --accent-2:#ffce54;
+    --danger:#ff5d5d;
+    --hp:#ff5d7a;
+    --hp-bg:#3a1420;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{
+    position:fixed; inset:0; width:100%; height:100%;
+    margin:0; padding:0; overflow:hidden; overscroll-behavior:none;
+    background:var(--bg); color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-user-select:none; user-select:none; -webkit-touch-callout:none;
+    touch-action:none;
+  }
+  #app{
+    position:absolute; inset:0;
+    display:flex; align-items:center; justify-content:center;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+  #stage{
+    position:relative;
+    width:100%; height:100%;
+    max-width: 960px;
+    aspect-ratio: 3 / 2;
+    background:#000;
+    border-radius:10px;
+    overflow:hidden;
+    box-shadow:0 0 0 1px var(--border), 0 20px 60px rgba(0,0,0,.6);
+  }
+  @media (max-aspect-ratio: 3/2){
+    #stage{ width:100%; height:auto; }
+  }
+  @media (min-aspect-ratio: 3/2){
+    #stage{ height:100%; width:auto; }
+  }
+  canvas#world{
+    position:absolute; inset:0; width:100%; height:100%;
+    image-rendering:pixelated; image-rendering:-moz-crisp-edges; image-rendering:crisp-edges;
+    display:block;
+  }
+
+  /* ---------- HUD ---------- */
+  #hud{
+    position:absolute; top:0; left:0; right:0;
+    display:flex; align-items:flex-start; justify-content:space-between;
+    padding:8px 10px; gap:8px; pointer-events:none;
+    font-variant-numeric: tabular-nums;
+  }
+  .hud-card{
+    background:rgba(10,12,18,.6); border:1px solid var(--border);
+    border-radius:8px; padding:6px 10px; backdrop-filter: blur(3px);
+    pointer-events:auto;
+  }
+  #hpWrap{ flex:1; max-width:260px; }
+  #hpBar{
+    width:100%; height:14px; background:var(--hp-bg); border-radius:7px; overflow:hidden;
+    border:1px solid rgba(255,255,255,.08);
+  }
+  #hpFill{ height:100%; width:100%; background:linear-gradient(180deg,#ff8098,var(--hp)); transition:width .15s ease; }
+  #hpText{ font-size:11px; color:var(--muted); margin-top:2px; }
+  #topRight{ display:flex; gap:6px; align-items:center; }
+  #waveCard{ text-align:center; min-width:86px; }
+  #waveLabel{ font-size:10px; color:var(--muted); letter-spacing:.06em; }
+  #waveNum{ font-size:18px; font-weight:800; color:var(--accent); }
+  #coinCard{ display:flex; align-items:center; gap:5px; font-weight:700; color:var(--accent-2); font-size:15px; }
+  .iconbtn{
+    width:34px; height:34px; border-radius:8px; border:1px solid var(--border);
+    background:rgba(10,12,18,.6); color:var(--text); font-size:16px;
+    display:flex; align-items:center; justify-content:center; pointer-events:auto;
+  }
+  #waveProgress{
+    position:absolute; top:56px; left:10px; right:10px; height:4px;
+    background:rgba(255,255,255,.08); border-radius:2px; pointer-events:none; overflow:hidden;
+  }
+  #waveProgressFill{ height:100%; width:0%; background:var(--accent); }
+  #floatTextLayer{ position:absolute; inset:0; pointer-events:none; overflow:hidden; }
+
+  /* ---------- Joystick ---------- */
+  #joyZone{ position:absolute; left:0; bottom:0; width:52%; height:60%; }
+  #joyBase, #joyKnob{ position:absolute; border-radius:50%; pointer-events:none; opacity:0; transition:opacity .12s; }
+  #joyBase{ width:100px; height:100px; margin:-50px; background:rgba(255,255,255,.06); border:2px solid rgba(255,255,255,.25); }
+  #joyKnob{ width:44px; height:44px; margin:-22px; background:rgba(255,255,255,.28); border:2px solid rgba(255,255,255,.55); }
+  #joyBase.active, #joyKnob.active{ opacity:1; }
+
+  /* ---------- Overlays ---------- */
+  .overlay{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    background:rgba(5,6,10,.82); backdrop-filter: blur(2px);
+    pointer-events:auto; padding:16px;
+  }
+  .hidden{ display:none !important; }
+  .panel{
+    background:var(--panel); border:1px solid var(--border); border-radius:14px;
+    padding:20px; width:min(92%, 420px); max-height:92%; overflow-y:auto;
+    box-shadow:0 10px 40px rgba(0,0,0,.5);
+  }
+  .panel h1{ font-size:22px; margin:0 0 4px; letter-spacing:.02em; }
+  .panel h1 .px{ color:var(--accent); }
+  .panel p.sub{ color:var(--muted); font-size:13px; margin:0 0 16px; line-height:1.5; }
+  .btn{
+    display:block; width:100%; text-align:center; padding:13px 16px; margin-top:10px;
+    border-radius:10px; border:1px solid var(--border); background:var(--panel-2);
+    color:var(--text); font-size:15px; font-weight:700; cursor:pointer;
+  }
+  .btn.primary{ background:var(--accent); color:#0a2412; border-color:var(--accent); }
+  .btn.danger{ background:transparent; color:var(--danger); border-color:var(--danger); }
+  .btn:active{ transform: scale(.98); }
+  .row2{ display:flex; gap:8px; }
+  .row2 .btn{ flex:1; }
+  #bestWaveLine{ color:var(--muted); font-size:13px; margin-top:14px; text-align:center; }
+
+  /* Shop */
+  #shopOverlay .panel{ width:min(94%, 560px); }
+  #shopHeader{ display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+  #shopCoins{ color:var(--accent-2); font-weight:800; font-size:16px; }
+  .upgradeList{ display:flex; flex-direction:column; gap:8px; margin:12px 0; }
+  .upgradeRow{
+    display:flex; align-items:center; gap:10px; background:var(--panel-2);
+    border:1px solid var(--border); border-radius:10px; padding:8px 10px;
+  }
+  .upgradeIcon{ font-size:20px; width:28px; text-align:center; flex:none; }
+  .upgradeInfo{ flex:1; min-width:0; }
+  .upgradeName{ font-size:13.5px; font-weight:700; }
+  .upgradeDesc{ font-size:11px; color:var(--muted); }
+  .upgradeLevel{ font-size:10.5px; color:var(--accent); margin-top:1px; }
+  .buyBtn{
+    flex:none; min-width:64px; padding:9px 8px; border-radius:8px; border:1px solid var(--border);
+    background:var(--panel); color:var(--accent-2); font-weight:800; font-size:13px;
+  }
+  .buyBtn:disabled{ color:var(--muted); opacity:.5; }
+  .buyBtn:not(:disabled):active{ transform:scale(.95); }
+
+  #primaryBtn{ font-size:16px; }
+  .brand{ font-size:11px; color:var(--muted); text-align:center; margin-top:16px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="stage">
+    <canvas id="world"></canvas>
+
+    <div id="hud" class="hidden">
+      <div id="hpWrap" class="hud-card">
+        <div id="hpBar"><div id="hpFill"></div></div>
+        <div id="hpText">100 / 100</div>
+      </div>
+      <div id="topRight">
+        <div id="waveCard" class="hud-card">
+          <div id="waveLabel">WELLE</div>
+          <div id="waveNum">1</div>
+        </div>
+        <div id="coinCard" class="hud-card">🪙<span id="coinText">0</span></div>
+        <button id="pauseBtn" class="iconbtn">❚❚</button>
+      </div>
+    </div>
+    <div id="waveProgress" class="hidden"><div id="waveProgressFill"></div></div>
+    <div id="floatTextLayer"></div>
+
+    <div id="joyZone">
+      <div id="joyBase"></div>
+      <div id="joyKnob"></div>
+    </div>
+
+    <!-- Start / Continue -->
+    <div id="startOverlay" class="overlay">
+      <div class="panel">
+        <h1>🧟 Pixel <span class="px">Survivors</span></h1>
+        <p class="sub">Überlebe endlose Zombie-Wellen. Bewege dich mit dem Joystick unten links — deine Waffe feuert automatisch auf den nächsten Zombie. Sammle die Coins, die sie fallen lassen, und verbessere dich nach jeder Welle im Shop.</p>
+        <button id="primaryBtn" class="btn primary">Spiel starten</button>
+        <button id="newGameBtn" class="btn hidden">Neues Spiel</button>
+        <div id="bestWaveLine" class="hidden">Beste Welle: <b id="bestWaveNum">1</b></div>
+        <div class="brand">Autosave aktiv · funktioniert offline im Browser</div>
+      </div>
+    </div>
+
+    <!-- Shop between waves -->
+    <div id="shopOverlay" class="overlay hidden">
+      <div class="panel">
+        <div id="shopHeader">
+          <h1 style="font-size:18px;margin:0;">Welle <span id="shopWaveDone"></span> geschafft!</h1>
+          <div id="shopCoins">🪙 <span id="shopCoinText">0</span></div>
+        </div>
+        <p class="sub" style="margin-bottom:6px;">Gib deine Coins für Upgrades aus, bevor die nächste Welle beginnt.</p>
+        <div id="upgradeList" class="upgradeList"></div>
+        <button id="nextWaveBtn" class="btn primary">Nächste Welle ▶</button>
+      </div>
+    </div>
+
+    <!-- Pause -->
+    <div id="pauseOverlay" class="overlay hidden">
+      <div class="panel">
+        <h1 style="font-size:19px;">Pausiert</h1>
+        <button id="resumeBtn" class="btn primary">Weiter</button>
+        <div class="row2">
+          <button id="soundBtn" class="btn">🔊 Sound</button>
+          <button id="quitBtn" class="btn danger">Beenden</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Game over -->
+    <div id="gameoverOverlay" class="overlay hidden">
+      <div class="panel">
+        <h1 style="color:var(--danger);">Du bist gefallen 💀</h1>
+        <p class="sub" id="gameoverStats">Welle erreicht: 1</p>
+        <button id="restartBtn" class="btn primary">Neue Runde starten</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* =========================================================
+   CONFIG
+========================================================= */
+const WORLD_W = 480, WORLD_H = 320;
+const SAVE_KEY = "pixelSurvivors.save.v1";
+const BEST_KEY = "pixelSurvivors.best.v1";
+const SETTINGS_KEY = "pixelSurvivors.settings.v1";
+
+const UPGRADES = [
+  { key:"damage",   name:"Schaden",      icon:"⚔️", base:14, growth:1.26,
+    desc:lvl=>`+15% Waffenschaden je Stufe (aktuell x${(1+lvl*0.15).toFixed(2)})` },
+  { key:"fireRate",  name:"Feuerrate",    icon:"🔥", base:16, growth:1.28,
+    desc:lvl=>`+12% Schussrate je Stufe (aktuell x${(1+lvl*0.12).toFixed(2)})` },
+  { key:"range",     name:"Reichweite",   icon:"🎯", base:12, growth:1.24,
+    desc:lvl=>`+10% Reichweite je Stufe (aktuell x${(1+lvl*0.10).toFixed(2)})` },
+  { key:"bulletSpeed",name:"Geschosstempo",icon:"💨", base:10, growth:1.22,
+    desc:lvl=>`+15% Geschossgeschwindigkeit je Stufe` },
+  { key:"moveSpeed", name:"Lauftempo",    icon:"🥾", base:14, growth:1.3,
+    desc:lvl=>`+8% Bewegungstempo je Stufe` },
+  { key:"maxHp",     name:"Max. Leben",   icon:"❤️", base:16, growth:1.3,
+    desc:lvl=>`+20 max. HP, volle Heilung beim Kauf` },
+  { key:"regen",     name:"Regeneration", icon:"💚", base:20, growth:1.35,
+    desc:lvl=>`+0.4 HP pro Sekunde je Stufe` },
+  { key:"multishot", name:"Mehrfachschuss",icon:"✳️", base:70, growth:1.9, max:4,
+    desc:lvl=>`+1 zusätzliches Projektil pro Schuss (max. 4)` },
+  { key:"pierce",    name:"Durchschlag",  icon:"🗡️", base:55, growth:1.95, max:3,
+    desc:lvl=>`Geschosse durchschlagen +1 Gegner (max. 3)` },
+];
+
+function upgradeCost(u, level){ return Math.round(u.base * Math.pow(u.growth, level)); }
+function upgradeMult(levels, key, per){ return 1 + (levels[key]||0) * per; }
+
+const BASE_STATS = {
+  damage: 9, fireRate: 2.1, range: 130, bulletSpeed: 250, moveSpeed: 92, maxHp: 100
+};
+
+/* =========================================================
+   CANVAS / DOM
+========================================================= */
+const canvas = document.getElementById("world");
+const ctx = canvas.getContext("2d");
+canvas.width = WORLD_W; canvas.height = WORLD_H;
+ctx.imageSmoothingEnabled = false;
+
+const el = (id)=>document.getElementById(id);
+const hud = el("hud"), hpFill = el("hpFill"), hpText = el("hpText");
+const waveNumEl = el("waveNum"), coinTextEl = el("coinText");
+const waveProgress = el("waveProgress"), waveProgressFill = el("waveProgressFill");
+const floatLayer = el("floatTextLayer");
+
+const startOverlay = el("startOverlay"), shopOverlay = el("shopOverlay"),
+      pauseOverlay = el("pauseOverlay"), gameoverOverlay = el("gameoverOverlay");
+
+/* =========================================================
+   AUDIO (procedural, no assets)
+========================================================= */
+let actx = null;
+let soundOn = true;
+try{
+  const s = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}");
+  if (typeof s.sound === "boolean") soundOn = s.sound;
+}catch(e){}
+
+function ensureAudio(){
+  if (!actx){
+    try{ actx = new (window.AudioContext || window.webkitAudioContext)(); }catch(e){ actx = null; }
+  }
+  if (actx && actx.state === "suspended") actx.resume();
+}
+function beep(freq, dur, type, vol, glideTo){
+  if (!soundOn || !actx) return;
+  const t0 = actx.currentTime;
+  const osc = actx.createOscillator();
+  const gain = actx.createGain();
+  osc.type = type || "square";
+  osc.frequency.setValueAtTime(freq, t0);
+  if (glideTo) osc.frequency.exponentialRampToValueAtTime(Math.max(20,glideTo), t0+dur);
+  gain.gain.setValueAtTime(0, t0);
+  gain.gain.linearRampToValueAtTime(vol!=null?vol:0.2, t0+0.01);
+  gain.gain.exponentialRampToValueAtTime(0.001, t0+dur);
+  osc.connect(gain); gain.connect(actx.destination);
+  osc.start(t0); osc.stop(t0+dur+0.02);
+}
+const SFX = {
+  shoot: ()=>beep(520,0.05,"square",0.06,320),
+  hit: ()=>beep(140,0.08,"sawtooth",0.10,60),
+  zombieDie: ()=>beep(90,0.15,"sawtooth",0.10,40),
+  coin: ()=>beep(880,0.08,"square",0.08,1300),
+  playerHurt: ()=>beep(160,0.18,"sawtooth",0.16,70),
+  buy: ()=>beep(660,0.10,"square",0.10,990),
+  wave: ()=>beep(220,0.25,"triangle",0.14,440),
+  gameover: ()=>beep(200,0.6,"sawtooth",0.18,40),
+};
+
+/* =========================================================
+   UTIL
+========================================================= */
+function rand(a,b){ return a + Math.random()*(b-a); }
+function randInt(a,b){ return Math.floor(rand(a,b+1)); }
+function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+function dist2(ax,ay,bx,by){ const dx=ax-bx, dy=ay-by; return dx*dx+dy*dy; }
+function dist(ax,ay,bx,by){ return Math.sqrt(dist2(ax,ay,bx,by)); }
+function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+
+function spawnFloatText(worldX, worldY, text, color){
+  const rect = canvas.getBoundingClientRect();
+  const sx = rect.left + (worldX/WORLD_W)*rect.width;
+  const sy = rect.top + (worldY/WORLD_H)*rect.height;
+  const stageRect = el("stage").getBoundingClientRect();
+  const d = document.createElement("div");
+  d.textContent = text;
+  d.style.cssText = `position:absolute;left:${sx-stageRect.left}px;top:${sy-stageRect.top}px;
+    color:${color};font-weight:800;font-size:12px;text-shadow:0 1px 2px #000;
+    pointer-events:none;transition:transform 0.8s ease-out, opacity 0.8s ease-out;
+    transform:translate(-50%,-50%);opacity:1;`;
+  floatLayer.appendChild(d);
+  requestAnimationFrame(()=>{
+    d.style.transform = "translate(-50%,-140%)";
+    d.style.opacity = "0";
+  });
+  setTimeout(()=>d.remove(), 850);
+}
+
+/* =========================================================
+   GAME STATE
+========================================================= */
+let state = null;
+function freshState(){
+  return {
+    wave: 1,
+    coins: 0,
+    hp: BASE_STATS.maxHp,
+    upgrades: {},
+    inShop: false,
+  };
+}
+
+function effectiveStats(){
+  const u = state.upgrades;
+  return {
+    damage: BASE_STATS.damage * upgradeMult(u,"damage",0.15),
+    fireRate: BASE_STATS.fireRate * upgradeMult(u,"fireRate",0.12),
+    range: BASE_STATS.range * upgradeMult(u,"range",0.10),
+    bulletSpeed: BASE_STATS.bulletSpeed * upgradeMult(u,"bulletSpeed",0.15),
+    moveSpeed: BASE_STATS.moveSpeed * upgradeMult(u,"moveSpeed",0.08),
+    maxHp: BASE_STATS.maxHp + (u.maxHp||0)*20,
+    regen: (u.regen||0)*0.4,
+    multishot: u.multishot||0,
+    pierce: u.pierce||0,
+  };
+}
+
+function saveGame(){
+  try{
+    localStorage.setItem(SAVE_KEY, JSON.stringify({
+      wave: state.wave, coins: state.coins, hp: state.hp,
+      upgrades: state.upgrades, savedAt: Date.now()
+    }));
+  }catch(e){}
+}
+function loadSave(){
+  try{
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return null;
+    const d = JSON.parse(raw);
+    if (typeof d.wave !== "number") return null;
+    return d;
+  }catch(e){ return null; }
+}
+function clearSave(){ try{ localStorage.removeItem(SAVE_KEY); }catch(e){} }
+function getBestWave(){ try{ return parseInt(localStorage.getItem(BEST_KEY)||"1",10) || 1; }catch(e){ return 1; } }
+function setBestWave(w){ try{ if (w > getBestWave()) localStorage.setItem(BEST_KEY, String(w)); }catch(e){} }
+
+/* =========================================================
+   INPUT: joystick (pointer events) + keyboard
+========================================================= */
+const joyZone = el("joyZone"), joyBase = el("joyBase"), joyKnob = el("joyKnob");
+const input = { x:0, y:0 };
+let joyPointerId = null;
+const JOY_RADIUS = 50;
+
+function stageToLocal(clientX, clientY){
+  const r = el("stage").getBoundingClientRect();
+  return { x: clientX - r.left, y: clientY - r.top, rect: r };
+}
+
+joyZone.addEventListener("pointerdown", (e)=>{
+  ensureAudio();
+  if (joyPointerId !== null) return;
+  joyPointerId = e.pointerId;
+  const p = stageToLocal(e.clientX, e.clientY);
+  joyBase.style.left = p.x+"px"; joyBase.style.top = p.y+"px";
+  joyKnob.style.left = p.x+"px"; joyKnob.style.top = p.y+"px";
+  joyBase.dataset.x = p.x; joyBase.dataset.y = p.y;
+  joyBase.classList.add("active"); joyKnob.classList.add("active");
+  joyZone.setPointerCapture(e.pointerId);
+});
+joyZone.addEventListener("pointermove", (e)=>{
+  if (e.pointerId !== joyPointerId) return;
+  const p = stageToLocal(e.clientX, e.clientY);
+  const bx = parseFloat(joyBase.dataset.x), by = parseFloat(joyBase.dataset.y);
+  let dx = p.x - bx, dy = p.y - by;
+  const d = Math.hypot(dx,dy);
+  const md = JOY_RADIUS;
+  if (d > md){ dx = dx/d*md; dy = dy/d*md; }
+  joyKnob.style.left = (bx+dx)+"px"; joyKnob.style.top = (by+dy)+"px";
+  const mag = Math.min(1, d/md);
+  const norm = d > 0.0001 ? mag : 0;
+  input.x = d>0.0001 ? (dx/(d||1)) * norm : 0;
+  input.y = d>0.0001 ? (dy/(d||1)) * norm : 0;
+});
+function endJoy(e){
+  if (e.pointerId !== joyPointerId) return;
+  joyPointerId = null;
+  joyBase.classList.remove("active"); joyKnob.classList.remove("active");
+  input.x = 0; input.y = 0;
+}
+joyZone.addEventListener("pointerup", endJoy);
+joyZone.addEventListener("pointercancel", endJoy);
+
+const keys = {};
+window.addEventListener("keydown", (e)=>{ keys[e.key.toLowerCase()] = true; });
+window.addEventListener("keyup", (e)=>{ keys[e.key.toLowerCase()] = false; });
+function keyboardVector(){
+  let x=0,y=0;
+  if (keys["a"]||keys["arrowleft"]) x-=1;
+  if (keys["d"]||keys["arrowright"]) x+=1;
+  if (keys["w"]||keys["arrowup"]) y-=1;
+  if (keys["s"]||keys["arrowdown"]) y+=1;
+  if (x||y){ const m=Math.hypot(x,y); x/=m; y/=m; }
+  return {x,y};
+}
+
+/* =========================================================
+   ENTITIES
+========================================================= */
+let player, zombies, bullets, coins, particles;
+
+function resetEntities(){
+  player = {
+    x: WORLD_W/2, y: WORLD_H/2, r: 9,
+    hp: state.hp, invuln: 0, fireTimer: 0, faceX: 1, faceY: 0, walkT: 0,
+    hitFlash: 0,
+  };
+  zombies = [];
+  bullets = [];
+  coins = [];
+  particles = [];
+}
+
+const ZOMBIE_TYPES = {
+  normal: { hpMul:1, spdMul:1, sizeMul:1, dmgMul:1, coinMin:1, coinMax:2, color:"#5a9c4c", dark:"#2f5a28", eye:"#ff5d5d" },
+  fast:   { hpMul:0.5, spdMul:1.8, sizeMul:0.82, dmgMul:0.8, coinMin:1, coinMax:1, color:"#c9c34a", dark:"#7a7526", eye:"#ff5d5d" },
+  tank:   { hpMul:3.2, spdMul:0.62, sizeMul:1.45, dmgMul:1.7, coinMin:3, coinMax:5, color:"#8a4b3a", dark:"#4a2419", eye:"#ffd35d" },
+  boss:   { hpMul:16, spdMul:0.65, sizeMul:2.3, dmgMul:2.6, coinMin:24, coinMax:34, color:"#7a3ba8", dark:"#3d1c56", eye:"#ff2d2d" },
+};
+
+function waveConfig(n){
+  const isBoss = n % 5 === 0;
+  return {
+    totalToSpawn: 4 + Math.floor(n*1.7),
+    spawnInterval: Math.max(0.32, 1.05 - n*0.028),
+    isBoss,
+    hpBase: 16 + n*4.2,
+    speedBase: 32 + Math.min(n*1.1, 38),
+    dmgBase: 6 + Math.floor(n/2),
+    fastChance: Math.min(0.14 + n*0.01, 0.4),
+    tankChance: n>2 ? Math.min(0.08 + n*0.012, 0.32) : 0,
+    coinMul: 1 + n*0.12,
+  };
+}
+
+let wave = null; // runtime wave tracker
+
+function startWave(n){
+  wave = waveConfig(n);
+  wave.spawned = 0;
+  wave.spawnTimer = 0;
+  wave.bossSpawned = !wave.isBoss;
+  wave.active = true;
+  waveProgress.classList.remove("hidden");
+  SFX.wave();
+}
+
+function spawnZombie(typeKey){
+  const cfg = waveConfig(state.wave);
+  const t = ZOMBIE_TYPES[typeKey];
+  const edge = randInt(0,3);
+  let x,y;
+  const m = 16;
+  if (edge===0){ x=rand(-m,WORLD_W+m); y=-m; }
+  else if (edge===1){ x=WORLD_W+m; y=rand(-m,WORLD_H+m); }
+  else if (edge===2){ x=rand(-m,WORLD_W+m); y=WORLD_H+m; }
+  else { x=-m; y=rand(-m,WORLD_H+m); }
+  const hp = Math.round(cfg.hpBase * t.hpMul);
+  zombies.push({
+    x,y, type:typeKey,
+    hp, maxHp: hp,
+    speed: cfg.speedBase * t.spdMul * rand(0.9,1.1),
+    r: 8 * t.sizeMul,
+    dmg: Math.round(cfg.dmgBase * t.dmgMul),
+    coinVal: Math.round(rand(t.coinMin,t.coinMax) * cfg.coinMul) || 1,
+    walkT: Math.random()*10,
+    hitFlash: 0,
+  });
+}
+
+function pickZombieType(){
+  const cfg = waveConfig(state.wave);
+  const r = Math.random();
+  if (r < cfg.tankChance) return "tank";
+  if (r < cfg.tankChance + cfg.fastChance) return "fast";
+  return "normal";
+}
+
+function updateWaveSpawning(dt){
+  if (!wave || !wave.active) return;
+  if (!wave.bossSpawned){
+    spawnZombie("boss");
+    wave.bossSpawned = true;
+  }
+  if (wave.spawned < wave.totalToSpawn){
+    wave.spawnTimer -= dt;
+    if (wave.spawnTimer <= 0){
+      spawnZombie(pickZombieType());
+      wave.spawned++;
+      wave.spawnTimer = wave.spawnInterval;
+    }
+  }
+  const total = wave.totalToSpawn + (wave.isBoss?1:0);
+  const progress = clamp((wave.spawned + (wave.isBoss?1:0) - zombies.length) / total, 0, 1);
+  waveProgressFill.style.width = (progress*100)+"%";
+
+  if (wave.spawned >= wave.totalToSpawn && zombies.length === 0){
+    wave.active = false;
+    onWaveComplete();
+  }
+}
+
+function onWaveComplete(){
+  waveProgress.classList.add("hidden");
+  saveGame();
+  openShop();
+}
+
+/* =========================================================
+   COMBAT
+========================================================= */
+function nearestZombies(x,y,maxRange,count){
+  const inRange = [];
+  for (const z of zombies){
+    const d = dist(x,y,z.x,z.y);
+    if (d <= maxRange) inRange.push({z,d});
+  }
+  inRange.sort((a,b)=>a.d-b.d);
+  return inRange.slice(0,count).map(o=>o.z);
+}
+
+function tryFire(dt, stats){
+  player.fireTimer -= dt;
+  if (player.fireTimer > 0) return;
+  const shots = 1 + stats.multishot;
+  const targets = nearestZombies(player.x, player.y, stats.range, shots);
+  if (targets.length === 0) return;
+  player.fireTimer = 1 / stats.fireRate;
+  targets.forEach((z)=>{
+    const ang = Math.atan2(z.y-player.y, z.x-player.x);
+    player.faceX = Math.cos(ang); player.faceY = Math.sin(ang);
+    bullets.push({
+      x:player.x, y:player.y,
+      vx: Math.cos(ang)*stats.bulletSpeed, vy: Math.sin(ang)*stats.bulletSpeed,
+      dmg: stats.damage, life: stats.range/stats.bulletSpeed,
+      pierce: stats.pierce, hitSet: new Set(),
+    });
+  });
+  SFX.shoot();
+}
+
+function spawnParticles(x,y,color,n){
+  for (let i=0;i<n;i++){
+    const a = rand(0,Math.PI*2), sp = rand(30,90);
+    particles.push({ x,y, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp, life:rand(0.25,0.5), maxLife:0.5, color });
+  }
+}
+
+function killZombie(z){
+  SFX.zombieDie();
+  spawnParticles(z.x,z.y, ZOMBIE_TYPES[z.type].color, z.type==="boss"?18:8);
+  coins.push({ x:z.x, y:z.y, val:z.coinVal, vx:rand(-20,20), vy:rand(-20,20), settleT:0.25 });
+}
+
+function updateBullets(dt){
+  for (let i=bullets.length-1;i>=0;i--){
+    const b = bullets[i];
+    b.x += b.vx*dt; b.y += b.vy*dt; b.life -= dt;
+    let removed = false;
+    if (b.life <= 0) removed = true;
+    if (!removed){
+      for (const z of zombies){
+        if (b.hitSet.has(z)) continue;
+        if (dist2(b.x,b.y,z.x,z.y) <= (z.r+3)*(z.r+3)){
+          z.hp -= b.dmg;
+          z.hitFlash = 0.08;
+          b.hitSet.add(z);
+          SFX.hit();
+          spawnFloatText(z.x, z.y-10, "-"+Math.round(b.dmg), "#fff");
+          if (b.pierce <= 0){ removed = true; }
+          else { b.pierce--; }
+          break;
+        }
+      }
+    }
+    if (removed || b.x<-20||b.x>WORLD_W+20||b.y<-20||b.y>WORLD_H+20) bullets.splice(i,1);
+  }
+  for (let i=zombies.length-1;i>=0;i--){
+    if (zombies[i].hp <= 0){ killZombie(zombies[i]); zombies.splice(i,1); }
+  }
+}
+
+function updateZombies(dt){
+  for (const z of zombies){
+    let dx = player.x-z.x, dy = player.y-z.y;
+    const d = Math.hypot(dx,dy) || 1;
+    dx/=d; dy/=d;
+    // light separation from other zombies
+    let sx=0, sy=0;
+    for (const o of zombies){
+      if (o===z) continue;
+      const dd2 = dist2(z.x,z.y,o.x,o.y);
+      const minD = z.r+o.r+4;
+      if (dd2 < minD*minD && dd2 > 0.001){
+        const dd = Math.sqrt(dd2);
+        sx += (z.x-o.x)/dd; sy += (z.y-o.y)/dd;
+      }
+    }
+    const moveX = dx + sx*0.6, moveY = dy + sy*0.6;
+    const mLen = Math.hypot(moveX,moveY) || 1;
+    z.x += (moveX/mLen)*z.speed*dt;
+    z.y += (moveY/mLen)*z.speed*dt;
+    z.walkT += dt*z.speed*0.15;
+    if (z.hitFlash>0) z.hitFlash -= dt;
+
+    if (player.invuln<=0 && d <= z.r+player.r){
+      player.hp -= z.dmg;
+      player.invuln = 0.6;
+      player.hitFlash = 0.25;
+      SFX.playerHurt();
+      spawnFloatText(player.x, player.y-14, "-"+z.dmg, "#ff5d5d");
+      const kx=(player.x-z.x)/(d||1), ky=(player.y-z.y)/(d||1);
+      player.x = clamp(player.x + kx*6, 10, WORLD_W-10);
+      player.y = clamp(player.y + ky*6, 10, WORLD_H-10);
+    }
+  }
+}
+
+function updateCoins(dt, stats){
+  const magnet = 46;
+  for (let i=coins.length-1;i>=0;i--){
+    const c = coins[i];
+    if (c.settleT>0){
+      c.x+=c.vx*dt; c.y+=c.vy*dt; c.vx*=0.9; c.vy*=0.9; c.settleT-=dt;
+    }
+    const d = dist(c.x,c.y,player.x,player.y);
+    if (d < magnet){
+      const pull = 220;
+      c.x += (player.x-c.x)/(d||1) * pull*dt;
+      c.y += (player.y-c.y)/(d||1) * pull*dt;
+    }
+    if (d < player.r+6){
+      state.coins += c.val;
+      SFX.coin();
+      spawnFloatText(c.x,c.y-6, "+"+c.val, "#ffce54");
+      coins.splice(i,1);
+    }
+  }
+}
+
+function updateParticles(dt){
+  for (let i=particles.length-1;i>=0;i--){
+    const p = particles[i];
+    p.x+=p.vx*dt; p.y+=p.vy*dt; p.vx*=0.92; p.vy*=0.92; p.life-=dt;
+    if (p.life<=0) particles.splice(i,1);
+  }
+}
+
+/* =========================================================
+   MAIN UPDATE
+========================================================= */
+let running = false, paused = false;
+let lastT = 0;
+let autosaveTimer = 0;
+
+function updatePlayer(dt, stats){
+  const kb = keyboardVector();
+  let ix = kb.x || input.x, iy = kb.y || input.y;
+  const mag = Math.hypot(ix,iy);
+  if (mag > 0.001){
+    player.x += ix*stats.moveSpeed*dt;
+    player.y += iy*stats.moveSpeed*dt;
+    player.walkT += dt*8*Math.min(1,mag);
+    if (!nearestZombies(player.x,player.y,stats.range,1).length){
+      player.faceX = ix/mag; player.faceY = iy/mag;
+    }
+  }
+  player.x = clamp(player.x, player.r, WORLD_W-player.r);
+  player.y = clamp(player.y, player.r+26, WORLD_H-player.r);
+
+  if (player.invuln>0) player.invuln -= dt;
+  if (player.hitFlash>0) player.hitFlash -= dt;
+  if (stats.regen>0 && player.hp>0 && player.hp<stats.maxHp){
+    player.hp = Math.min(stats.maxHp, player.hp + stats.regen*dt);
+  }
+}
+
+function frame(t){
+  if (!running) return;
+  requestAnimationFrame(frame);
+  const dt = Math.min((t-lastT)/1000, 0.05) || 0;
+  lastT = t;
+  if (paused || state.inShop) { draw(); return; }
+
+  const stats = effectiveStats();
+  updatePlayer(dt, stats);
+  updateWaveSpawning(dt);
+  tryFire(dt, stats);
+  updateBullets(dt);
+  updateZombies(dt);
+  updateCoins(dt, stats);
+  updateParticles(dt);
+
+  state.hp = player.hp;
+  updateHud(stats);
+
+  autosaveTimer += dt;
+  if (autosaveTimer > 8){ autosaveTimer = 0; saveGame(); }
+
+  if (player.hp <= 0){
+    onGameOver();
+    return;
+  }
+  draw();
+}
+
+function updateHud(stats){
+  const pct = clamp(player.hp/stats.maxHp,0,1)*100;
+  hpFill.style.width = pct+"%";
+  hpText.textContent = `${Math.max(0,Math.round(player.hp))} / ${Math.round(stats.maxHp)}`;
+  waveNumEl.textContent = state.wave;
+  coinTextEl.textContent = state.coins;
+}
+
+/* =========================================================
+   RENDER (pixel-art style, low-res canvas + CSS pixelation)
+========================================================= */
+function snap(v){ return Math.round(v); }
+
+function drawGround(){
+  ctx.fillStyle = "#131a12";
+  ctx.fillRect(0,0,WORLD_W,WORLD_H);
+  ctx.fillStyle = "rgba(255,255,255,0.03)";
+  const g = 24;
+  for (let x=0;x<WORLD_W;x+=g) ctx.fillRect(x,0,1,WORLD_H);
+  for (let y=0;y<WORLD_H;y+=g) ctx.fillRect(0,y,WORLD_W,1);
+  ctx.strokeStyle = "rgba(255,93,93,0.25)";
+  ctx.lineWidth = 2;
+  ctx.strokeRect(1,1,WORLD_W-2,WORLD_H-2);
+}
+
+function drawHumanoid(x,y,r,bodyColor,darkColor,eyeColor,walkT,faceX,faceY,flash){
+  const bob = Math.sin(walkT)*1.2;
+  const legSwing = Math.sin(walkT*2)*3;
+  x = snap(x); y = snap(y+bob);
+  ctx.save();
+  // shadow
+  ctx.fillStyle = "rgba(0,0,0,0.35)";
+  ctx.beginPath();
+  ctx.ellipse(x, y+r*0.9, r*0.9, r*0.35, 0,0,Math.PI*2);
+  ctx.fill();
+  // legs
+  ctx.fillStyle = darkColor;
+  ctx.fillRect(x-r*0.5, y+r*0.2+Math.max(0,legSwing)*0.3, r*0.4, r*0.7);
+  ctx.fillRect(x+r*0.1, y+r*0.2+Math.max(0,-legSwing)*0.3, r*0.4, r*0.7);
+  // body
+  ctx.fillStyle = flash>0 ? "#ffffff" : bodyColor;
+  ctx.fillRect(x-r*0.7, y-r*0.35, r*1.4, r*1.0);
+  // head
+  ctx.fillStyle = flash>0 ? "#ffffff" : bodyColor;
+  ctx.fillRect(x-r*0.55, y-r*1.15, r*1.1, r*0.85);
+  // outline hint
+  ctx.strokeStyle = darkColor;
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x-r*0.7, y-r*0.35, r*1.4, r*1.0);
+  // eyes (face direction)
+  const ex = x + faceX*r*0.35, ey = y-r*0.75 + faceY*r*0.15;
+  ctx.fillStyle = eyeColor;
+  ctx.fillRect(ex-1, ey-1, 2, 2);
+  ctx.restore();
+}
+
+function drawPlayer(){
+  drawHumanoid(player.x, player.y, player.r, "#4fb0ff", "#1a4a80", "#0b0d12", player.walkT, player.faceX, player.faceY, player.hitFlash);
+  if (player.invuln>0 && Math.floor(player.invuln*20)%2===0){
+    ctx.strokeStyle = "rgba(255,255,255,0.5)";
+    ctx.beginPath(); ctx.arc(player.x,player.y,player.r+3,0,Math.PI*2); ctx.stroke();
+  }
+}
+
+function drawZombies(){
+  for (const z of zombies){
+    const t = ZOMBIE_TYPES[z.type];
+    const dx = player.x-z.x, dy = player.y-z.y;
+    const d = Math.hypot(dx,dy)||1;
+    drawHumanoid(z.x, z.y, z.r, t.color, t.dark, t.eye, z.walkT, dx/d, dy/d, z.hitFlash);
+    if (z.hp < z.maxHp){
+      const w = z.r*2;
+      ctx.fillStyle = "rgba(0,0,0,0.5)";
+      ctx.fillRect(z.x-w/2, z.y-z.r*1.6, w, 3);
+      ctx.fillStyle = "#ff5d7a";
+      ctx.fillRect(z.x-w/2, z.y-z.r*1.6, w*clamp(z.hp/z.maxHp,0,1), 3);
+    }
+    if (z.type==="boss"){
+      ctx.fillStyle = "#ffd35d";
+      ctx.font = "8px monospace";
+      ctx.textAlign = "center";
+      ctx.fillText("BOSS", z.x, z.y-z.r*1.9);
+    }
+  }
+}
+
+function drawBullets(){
+  ctx.fillStyle = "#fff7c9";
+  for (const b of bullets){
+    ctx.fillRect(snap(b.x)-2, snap(b.y)-2, 4, 4);
+  }
+}
+function drawCoins(){
+  for (const c of coins){
+    const bob = Math.sin(performance.now()/150 + c.x)*1.5;
+    ctx.fillStyle = "#c98b1c";
+    ctx.beginPath(); ctx.arc(snap(c.x), snap(c.y+bob), 4, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = "#ffce54";
+    ctx.beginPath(); ctx.arc(snap(c.x)-1, snap(c.y+bob)-1, 2.2, 0, Math.PI*2); ctx.fill();
+  }
+}
+function drawParticles(){
+  for (const p of particles){
+    ctx.globalAlpha = clamp(p.life/p.maxLife,0,1);
+    ctx.fillStyle = p.color;
+    ctx.fillRect(snap(p.x)-1, snap(p.y)-1, 2, 2);
+  }
+  ctx.globalAlpha = 1;
+}
+
+function draw(){
+  drawGround();
+  drawCoins();
+  drawZombies();
+  drawBullets();
+  drawPlayer();
+  drawParticles();
+  if (player.hitFlash>0){
+    ctx.fillStyle = `rgba(255,0,0,${clamp(player.hitFlash*0.4,0,0.35)})`;
+    ctx.fillRect(0,0,WORLD_W,WORLD_H);
+  }
+}
+
+/* =========================================================
+   SHOP
+========================================================= */
+const upgradeListEl = el("upgradeList");
+function renderShop(){
+  el("shopWaveDone").textContent = state.wave;
+  el("shopCoinText").textContent = state.coins;
+  upgradeListEl.innerHTML = "";
+  UPGRADES.forEach(u=>{
+    const level = state.upgrades[u.key]||0;
+    const maxed = u.max!=null && level>=u.max;
+    const cost = maxed ? null : upgradeCost(u, level);
+    const row = document.createElement("div");
+    row.className = "upgradeRow";
+    row.innerHTML = `
+      <div class="upgradeIcon">${u.icon}</div>
+      <div class="upgradeInfo">
+        <div class="upgradeName">${u.name}</div>
+        <div class="upgradeDesc">${u.desc(level)}</div>
+        <div class="upgradeLevel">Stufe ${level}${u.max!=null?(" / "+u.max):""}</div>
+      </div>
+      <button class="buyBtn" ${(maxed || cost>state.coins) ? "disabled":""}>${maxed?"MAX":("🪙 "+cost)}</button>
+    `;
+    const btn = row.querySelector("button");
+    if (!maxed){
+      btn.addEventListener("click", ()=>{
+        if (state.coins < cost) return;
+        state.coins -= cost;
+        state.upgrades[u.key] = level+1;
+        if (u.key === "maxHp"){
+          player.hp = BASE_STATS.maxHp + state.upgrades.maxHp*20;
+          state.hp = player.hp;
+        }
+        SFX.buy();
+        saveGame();
+        renderShop();
+      });
+    }
+    upgradeListEl.appendChild(row);
+  });
+}
+function openShop(){
+  state.inShop = true;
+  renderShop();
+  shopOverlay.classList.remove("hidden");
+}
+function closeShopAndAdvance(){
+  shopOverlay.classList.add("hidden");
+  state.inShop = false;
+  state.wave += 1;
+  setBestWave(state.wave);
+  saveGame();
+  startWave(state.wave);
+}
+el("nextWaveBtn").addEventListener("click", closeShopAndAdvance);
+
+/* =========================================================
+   FLOW: start / pause / gameover
+========================================================= */
+function showHud(show){ hud.classList.toggle("hidden", !show); }
+
+function beginRun(fromSave){
+  state = fromSave ? {
+    wave: fromSave.wave, coins: fromSave.coins, hp: fromSave.hp,
+    upgrades: fromSave.upgrades||{}, inShop:false,
+  } : freshState();
+  resetEntities();
+  player.hp = state.hp>0?state.hp:effectiveStats().maxHp;
+  startOverlay.classList.add("hidden");
+  gameoverOverlay.classList.add("hidden");
+  showHud(true);
+  startWave(state.wave);
+  running = true; paused = false;
+  lastT = performance.now();
+  requestAnimationFrame(frame);
+}
+
+function onGameOver(){
+  running = false;
+  setBestWave(state.wave);
+  SFX.gameover();
+  clearSave();
+  el("gameoverStats").textContent = `Welle erreicht: ${state.wave} · Beste Welle: ${getBestWave()}`;
+  showHud(false);
+  waveProgress.classList.add("hidden");
+  gameoverOverlay.classList.remove("hidden");
+}
+
+el("primaryBtn").addEventListener("click", ()=>{ ensureAudio(); beginRun(loadSave()); });
+el("newGameBtn").addEventListener("click", ()=>{ ensureAudio(); clearSave(); beginRun(null); });
+el("restartBtn").addEventListener("click", ()=>{ clearSave(); beginRun(null); });
+
+el("pauseBtn").addEventListener("click", ()=>{
+  paused = true;
+  pauseOverlay.classList.remove("hidden");
+  updateSoundBtn();
+});
+el("resumeBtn").addEventListener("click", ()=>{
+  paused = false;
+  pauseOverlay.classList.add("hidden");
+  lastT = performance.now();
+});
+el("quitBtn").addEventListener("click", ()=>{
+  saveGame();
+  running = false; paused = false;
+  pauseOverlay.classList.add("hidden");
+  showHud(false);
+  waveProgress.classList.add("hidden");
+  initMenu();
+});
+function updateSoundBtn(){
+  el("soundBtn").textContent = soundOn ? "🔊 Sound" : "🔇 Stumm";
+}
+el("soundBtn").addEventListener("click", ()=>{
+  soundOn = !soundOn;
+  try{ localStorage.setItem(SETTINGS_KEY, JSON.stringify({sound:soundOn})); }catch(e){}
+  updateSoundBtn();
+  if (soundOn) ensureAudio();
+});
+
+function initMenu(){
+  const save = loadSave();
+  const best = getBestWave();
+  if (save){
+    el("primaryBtn").textContent = `Weiterspielen (Welle ${save.wave})`;
+    el("newGameBtn").classList.remove("hidden");
+  } else {
+    el("primaryBtn").textContent = "Spiel starten";
+    el("newGameBtn").classList.add("hidden");
+  }
+  if (best>1){
+    el("bestWaveLine").classList.remove("hidden");
+    el("bestWaveNum").textContent = best;
+  }
+  startOverlay.classList.remove("hidden");
+  draw();
+}
+
+/* autosave on hide/unload */
+document.addEventListener("visibilitychange", ()=>{
+  if (document.hidden && running && !paused) saveGame();
+});
+window.addEventListener("pagehide", ()=>{ if (running) saveGame(); });
+window.addEventListener("beforeunload", ()=>{ if (running) saveGame(); });
+
+/* initial idle draw so canvas isn't blank behind the menu */
+player = { x:WORLD_W/2, y:WORLD_H/2, r:9, hp:100, invuln:0, fireTimer:0, faceX:1, faceY:0, walkT:0, hitFlash:0 };
+zombies=[]; bullets=[]; coins=[]; particles=[];
+drawGround(); drawPlayer();
+
+initMenu();
+
+})();
+</script>
+</body>
+</html>
