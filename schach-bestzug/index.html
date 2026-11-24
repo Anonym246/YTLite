@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Schach-Bestzug – Screenshot + Stockfish</title>
+<title>Schach-Bestzug</title>
 <style>
   :root { --light:#eed8b4; --dark:#b58863; --accent:#2f7d32; }
   * { box-sizing: border-box; }
@@ -12,113 +12,111 @@
   header h1 { margin:0; font-size:20px; }
   header p { margin:4px 0 0; color:#aaa; font-size:13px; }
   main { display:flex; flex-wrap:wrap; gap:20px; padding:20px; }
-  section { background:#2a2f35; border-radius:10px; padding:16px; flex:1 1 420px; min-width:320px; }
+  section { background:#2a2f35; border-radius:10px; padding:16px; flex:1 1 420px; min-width:300px; }
   h2 { margin:0 0 10px; font-size:16px; }
-  button { background:#3b4450; color:#fff; border:0; border-radius:6px; padding:8px 12px; cursor:pointer; font-size:14px; margin:3px 2px; }
+  button { background:#3b4450; color:#fff; border:0; border-radius:6px; padding:10px 14px; cursor:pointer; font-size:15px; margin:3px 2px; min-height:44px; }
   button:hover { background:#4b5563; }
   button.primary { background:var(--accent); }
-  button.primary:hover { background:#38963c; }
-  button:disabled { opacity:.5; cursor:default; }
-  .hint { color:#aaa; font-size:12.5px; line-height:1.45; }
-  #drop { border:2px dashed #555; border-radius:8px; padding:10px; text-align:center; min-height:120px; position:relative; }
+  button.on { outline:2px solid #8ee28f; }
+  .hint { color:#aaa; font-size:13px; line-height:1.45; }
+  #drop { border:2px dashed #555; border-radius:8px; padding:10px; text-align:center; min-height:100px; }
   #drop.over { border-color:var(--accent); }
   #imgCanvas { max-width:100%; display:none; cursor:crosshair; touch-action:none; margin:0 auto; }
   .row { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:8px 0; }
-  label { font-size:14px; }
-  select, input[type=number] { background:#1f2328; color:#eee; border:1px solid #555; border-radius:5px; padding:4px; }
-  #boardWrap { position:relative; width:min(100%, 440px); aspect-ratio:1; margin:6px 0; user-select:none; }
+  label { font-size:15px; }
+  select { background:#1f2328; color:#eee; border:1px solid #555; border-radius:5px; padding:8px; font-size:15px; }
+  #boardWrap { position:relative; width:min(100%, 520px); aspect-ratio:1; margin:6px 0; user-select:none; -webkit-user-select:none; touch-action:none; }
   #board { display:grid; grid-template-columns:repeat(8,1fr); grid-template-rows:repeat(8,1fr); width:100%; height:100%; border:2px solid #111; }
-  .sq { display:flex; align-items:center; justify-content:center; font-size:clamp(22px, 8vw, 46px); line-height:1; cursor:pointer; position:relative; }
+  .sq { display:flex; align-items:center; justify-content:center; font-size:clamp(26px, 9vw, 54px); line-height:1; position:relative; }
   .sq.l { background:var(--light); } .sq.d { background:var(--dark); }
+  .sq.last::after { content:''; position:absolute; inset:0; background:rgba(255,235,59,.38); pointer-events:none; }
+  .sq.sel::after { content:''; position:absolute; inset:0; background:rgba(76,175,80,.45); pointer-events:none; }
+  .sq.dot::before { content:''; position:absolute; width:28%; height:28%; border-radius:50%; background:rgba(0,0,0,.25); pointer-events:none; z-index:1; }
   .sq .co { position:absolute; font-size:10px; color:#0008; left:2px; bottom:1px; }
+  .sq.drag-src > .pw, .sq.drag-src > .pb { opacity:.25; }
   .pw { color:#fff; text-shadow:0 0 2px #000,0 0 2px #000,0 0 1px #000; }
   .pb { color:#111; text-shadow:0 0 2px #fff8; }
+  #ghost { position:fixed; pointer-events:none; z-index:10; font-size:clamp(34px, 11vw, 64px); transform:translate(-50%,-50%); display:none; }
   #arrows { position:absolute; inset:0; pointer-events:none; }
-  #palette { display:flex; flex-wrap:wrap; gap:4px; }
-  #palette .p { width:40px; height:40px; font-size:30px; display:flex; align-items:center; justify-content:center; background:#c9b28f; border-radius:5px; cursor:pointer; border:2px solid transparent; }
+  #palette { display:none; flex-wrap:wrap; gap:4px; }
+  #palette .p { width:44px; height:44px; font-size:32px; display:flex; align-items:center; justify-content:center; background:#c9b28f; border-radius:5px; cursor:pointer; border:2px solid transparent; }
   #palette .p.sel { border-color:#4caf50; }
-  #result { font-size:15px; margin-top:8px; }
-  #result .best { font-size:22px; font-weight:bold; color:#8ee28f; }
-  #lines { font-family: ui-monospace, monospace; font-size:12.5px; color:#ccc; white-space:pre-wrap; }
-  code { background:#1f2328; padding:1px 4px; border-radius:3px; }
-  #status { font-size:13px; color:#ffcc66; min-height:18px; }
+  .editOnly { display:none; }
+  body.edit .editOnly { display:flex; }
+  body.edit #palette { display:flex; }
+  #info { font-size:16px; margin-top:6px; min-height:56px; }
+  #info .best { font-size:24px; font-weight:bold; color:#8ee28f; }
+  #status { font-size:14px; color:#ffcc66; min-height:18px; }
 </style>
 </head>
 <body>
 <header>
   <h1>♞ Schach-Bestzug</h1>
-  <p>Screenshot vom Brett hochladen → Stellung wird erkannt → Stockfish berechnet den besten Zug. Läuft komplett offline im Browser.</p>
+  <p>Screenshot rein → Stellung erkennen → weiterspielen. Stockfish zeigt dir bei deinem Zug immer den besten Zug als Pfeil.</p>
 </header>
 <main>
   <section>
-    <h2>1. Bild</h2>
+    <h2>1. Screenshot (optional)</h2>
     <div id="drop">
-      <div id="dropText">Screenshot auswählen (iPad: „Fotomediathek“), hierher ziehen oder mit <b>Strg/⌘+V</b> einfügen
-        <br><input type="file" id="file" accept="image/*"></div>
+      <div id="dropText">Screenshot auswählen (iPad: „Fotomediathek“), hierher ziehen oder mit <b>Strg/⌘+V</b> einfügen<br><input type="file" id="file" accept="image/*"></div>
       <canvas id="imgCanvas"></canvas>
     </div>
-    <p class="hint">Ziehe mit der Maus/dem Finger ein Rechteck <b>genau um das Brett</b> (nur die 64 Felder, ohne Rand/Koordinaten außen). Ohne Auswahl wird das ganze Bild als Brett genommen.</p>
-    <div class="row">
-      <label>Unten im Bild: <select id="orient"><option value="w">Weiß</option><option value="b">Schwarz</option></select></label>
-    </div>
+    <p class="hint">Zieh mit dem Finger/der Maus ein Quadrat <b>genau um die 64 Felder</b>. Das grüne Gitter muss auf den Feldern liegen.</p>
     <div class="row">
       <button id="btnCalib">Als Grundstellung lernen</button>
       <button id="btnRecog" class="primary">Stellung erkennen</button>
     </div>
-    <p class="hint"><b>Erstes Mal:</b> Mach einen Screenshot der <b>Grundstellung</b> auf deiner Seite (chess.com, lichess …), lade ihn hoch und klick „Als Grundstellung lernen“. Danach erkennt die App Stellungen mit demselben Brett-Design.<br>
-    Erkennung falsch? Felder rechts korrigieren und „Korrigiertes Brett lernen“ drücken – dann wird sie besser.</p>
+    <p class="hint"><b>Erstes Mal:</b> Screenshot der <b>Grundstellung</b> aus deiner Schach-App laden → „Als Grundstellung lernen“. Danach werden Stellungen im gleichen Design erkannt. Erkennung falsch? Rechts „Bearbeiten“, Felder korrigieren, „Korrigiertes Brett lernen“.</p>
     <div id="status"></div>
     <p class="hint" id="tplInfo"></p>
   </section>
 
   <section>
-    <h2>2. Stellung &amp; bester Zug</h2>
-    <div id="boardWrap"><div id="board"></div><svg id="arrows" viewBox="0 0 8 8"></svg></div>
-    <div id="palette"></div>
-    <p class="hint">Figur oben auswählen, dann aufs Feld klicken. Zum Löschen ✕ wählen und aufs Feld tippen (oder Rechtsklick).</p>
+    <h2>2. Spielen</h2>
     <div class="row">
-      <label>Am Zug: <select id="turn"><option value="w">Weiß</option><option value="b">Schwarz</option></select></label>
-      <label>Tiefe: <input type="number" id="depth" value="18" min="6" max="30" style="width:60px"></label>
+      <label>Ich spiele: <select id="side"><option value="w">Weiß</option><option value="b">Schwarz</option></select></label>
+      <label>Denkzeit: <select id="think"><option value="1000">1 s</option><option value="2000" selected>2 s</option><option value="4000">4 s</option><option value="8000">8 s</option></select></label>
     </div>
+    <div id="info"></div>
+    <div id="boardWrap"><div id="board"></div><svg id="arrows" viewBox="0 0 8 8"></svg></div>
     <div class="row">
-      <button id="btnStart">Grundstellung</button>
-      <button id="btnClear">Leeren</button>
-      <button id="btnFlip">Brett drehen</button>
+      <button id="btnUndo">↶ Zug zurück</button>
+      <button id="btnNew">Neues Spiel</button>
+      <button id="btnEdit">✎ Bearbeiten</button>
+    </div>
+    <div id="palette"></div>
+    <div class="row editOnly">
+      <label>Am Zug: <select id="turn"><option value="w">Weiß</option><option value="b">Schwarz</option></select></label>
+      <button id="btnClear">Brett leeren</button>
       <button id="btnLearn">Korrigiertes Brett lernen</button>
     </div>
-    <div class="row">
-      <button id="btnGo" class="primary">♛ Besten Zug berechnen</button>
-      <button id="btnStop">Stopp</button>
-    </div>
-    <div class="row"><label style="flex:1">FEN: <input id="fen" style="width:100%;background:#1f2328;color:#eee;border:1px solid #555;border-radius:5px;padding:4px"></label></div>
-    <div id="result"></div>
-    <div id="lines"></div>
+    <p class="hint editOnly">Figur wählen und aufs Feld tippen. Mit ✕ löschst du ein Feld. Danach „Fertig – spielen“ tippen.</p>
+    <p class="hint">Ziehen: Figur per Drag &amp; Drop bewegen oder erst Figur, dann Zielfeld antippen. Du ziehst auch die Züge des Gegners. Bauern werden automatisch zur Dame.</p>
   </section>
 </main>
+<div id="ghost"></div>
 
+<script src="chess.js"></script>
 <script src="stockfish-src.js"></script>
 <script>
 "use strict";
-// ---------- Grundlagen ----------
+{
 const GLYPH = { k:'♚', q:'♛', r:'♜', b:'♝', n:'♞', p:'♟' };
 const PIECES = ['K','Q','R','B','N','P','k','q','r','b','n','p'];
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR';
 const $ = id => document.getElementById(id);
 const status = t => $('status').textContent = t || '';
 
-let board = fenToBoard(START_FEN);   // board[r][c], r=0 => Reihe 8, c=0 => Linie a
-let viewFlip = false;                 // Anzeige: Schwarz unten?
+const game = new Chess();
+let editing = false;
+let editBoard = null;      // Brett-Array nur im Bearbeiten-Modus
 let selPiece = 'P';
-let arrows = [];
+let selected = null;       // angetipptes Feld (z.B. 'e2')
+let bestArrow = null;
 
+// ---------- Hilfen ----------
 function fenToBoard(f) {
-  const b = [];
-  for (const row of f.split(' ')[0].split('/')) {
-    const r = [];
-    for (const ch of row) { if (/\d/.test(ch)) for (let i=0;i<+ch;i++) r.push(''); else r.push(ch); }
-    b.push(r);
-  }
-  return b;
+  return f.split(' ')[0].split('/').map(row => { const r=[]; for (const ch of row) { if (/\d/.test(ch)) for (let i=0;i<+ch;i++) r.push(''); else r.push(ch); } return r; });
 }
 function boardToFen(b) {
   return b.map(r => { let s='', e=0; for (const p of r) { if (!p) e++; else { if (e) s+=e; e=0; s+=p; } } return s + (e||''); }).join('/');
@@ -129,28 +127,57 @@ function castling(b) {
   if (b[0][4]==='k') { if (b[0][7]==='r') s+='k'; if (b[0][0]==='r') s+='q'; }
   return s || '-';
 }
-function fullFen() { return `${boardToFen(board)} ${$('turn').value} ${castling(board)} - 0 1`; }
 const sqName = (r,c) => 'abcdefgh'[c] + (8-r);
-const sqFromName = n => [8 - +n[1], n.charCodeAt(0)-97];
+const sqRC = n => [8 - +n[1], n.charCodeAt(0)-97];
+const mySide = () => $('side').value;
+const flip = () => mySide()==='b';
+function currentBoard() { return editing ? editBoard : fenToBoard(game.fen()); }
 
-// ---------- Brett-Anzeige ----------
-function renderBoard() {
+// Stellung aus Brett-Array + Zugrecht ins Spiel laden (mit Plausibilitätsprüfung)
+function loadPosition(b, turn) {
+  const flat = b.flat();
+  if (flat.filter(p=>p==='K').length!==1 || flat.filter(p=>p==='k').length!==1) return 'Jede Seite braucht genau einen König.';
+  if (b[0].some(p=>p==='P'||p==='p') || b[7].some(p=>p==='P'||p==='p')) return 'Bauern dürfen nicht auf der 1. oder 8. Reihe stehen.';
+  const base = `${boardToFen(b)} ? ${castling(b)} - 0 1`;
+  const other = turn==='w' ? 'b' : 'w';
+  const test = new Chess();
+  if (!test.load(base.replace('?', other))) return 'Ungültige Stellung.';
+  if (test.in_check()) return (other==='w'?'Weiß':'Schwarz') + ' steht im Schach, obwohl ' + (turn==='w'?'Weiß':'Schwarz') + ' am Zug ist. „Am Zug“ prüfen.';
+  if (!game.load(base.replace('?', turn))) return 'Ungültige Stellung.';
+  return null;
+}
+
+// ---------- Brett zeichnen ----------
+function render() {
   const el = $('board'); el.innerHTML = '';
+  const b = currentBoard();
+  const hist = editing ? [] : game.history({ verbose:true });
+  const last = hist[hist.length-1];
+  const dots = (!editing && selected) ? game.moves({ square:selected, verbose:true }).map(m=>m.to) : [];
   for (let i=0;i<8;i++) for (let j=0;j<8;j++) {
-    const r = viewFlip ? 7-i : i, c = viewFlip ? 7-j : j;
+    const r = flip() ? 7-i : i, c = flip() ? 7-j : j, n = sqName(r,c);
     const d = document.createElement('div');
     d.className = 'sq ' + ((r+c)%2 ? 'd' : 'l');
-    const p = board[r][c];
+    if (last && (last.from===n || last.to===n)) d.classList.add('last');
+    if (selected===n) d.classList.add('sel');
+    if (dots.includes(n)) d.classList.add('dot');
+    d.dataset.sq = n;
+    const p = b[r][c];
     if (p) { const s = document.createElement('span'); s.className = p===p.toUpperCase() ? 'pw' : 'pb'; s.textContent = GLYPH[p.toLowerCase()]; d.appendChild(s); }
     if (j===0 || i===7) { const co=document.createElement('span'); co.className='co'; co.textContent = (j===0? (8-r):'') + (i===7? 'abcdefgh'[c]:''); d.appendChild(co); }
-    d.onclick = () => { board[r][c] = selPiece==='x' ? '' : (board[r][c]===selPiece ? '' : selPiece); changed(); };
-    d.oncontextmenu = e => { e.preventDefault(); board[r][c]=''; changed(); };
     el.appendChild(d);
   }
-  $('fen').value = fullFen();
-  drawArrows();
+  drawArrow();
 }
-function changed() { arrows = []; $('result').innerHTML=''; $('lines').textContent=''; renderBoard(); }
+function drawArrow() {
+  const svg = $('arrows');
+  if (!bestArrow || editing) { svg.innerHTML=''; return; }
+  const pos = n => { const [r,c]=sqRC(n); return [ (flip()?7-c:c)+.5, (flip()?7-r:r)+.5 ]; };
+  const [x1,y1]=pos(bestArrow.from), [x2,y2]=pos(bestArrow.to);
+  const len = Math.hypot(x2-x1,y2-y1), k = (len-0.3)/len;
+  svg.innerHTML = `<defs><marker id="ah" markerWidth="3" markerHeight="3" refX="1.5" refY="1.5" orient="auto"><path d="M0,0 L3,1.5 L0,3 z" fill="#2ecc40"/></marker></defs>
+    <line x1="${x1}" y1="${y1}" x2="${x1+(x2-x1)*k}" y2="${y1+(y2-y1)*k}" stroke="#2ecc40" stroke-width="0.2" stroke-opacity="0.85" stroke-linecap="round" marker-end="url(#ah)"/>`;
+}
 function renderPalette() {
   const el = $('palette'); el.innerHTML='';
   for (const p of [...PIECES, 'x']) {
@@ -161,28 +188,127 @@ function renderPalette() {
     el.appendChild(d);
   }
 }
-function drawArrows() {
-  const svg = $('arrows');
-  svg.innerHTML = '<defs>' + ['#2ecc40','#f1c40f','#e67e22'].map((c,i)=>`<marker id="ah${i}" markerWidth="4" markerHeight="4" refX="2" refY="2" orient="auto"><path d="M0,0 L4,2 L0,4 z" fill="${c}"/></marker>`).join('') + '</defs>';
-  arrows.slice().reverse().forEach(a => {
-    const pos = n => { const [r,c]=sqFromName(n); const x = viewFlip?7-c:c, y = viewFlip?7-r:r; return [x+.5, y+.5]; };
-    const [x1,y1]=pos(a.from), [x2,y2]=pos(a.to);
-    const col = ['#2ecc40','#f1c40f','#e67e22'][a.i];
-    const len = Math.hypot(x2-x1,y2-y1), k = (len-0.35)/len;
-    svg.innerHTML += `<line x1="${x1}" y1="${y1}" x2="${x1+(x2-x1)*k}" y2="${y1+(y2-y1)*k}" stroke="${col}" stroke-width="${a.i?0.1:0.18}" stroke-opacity="${a.i?0.7:0.9}" marker-end="url(#ah${a.i})"/>`;
-  });
+
+// ---------- Ziehen (Drag & Drop + Antippen) ----------
+let drag = null; // {from, x0, y0, moved}
+const ghost = $('ghost');
+function sqAt(x, y) { const e = document.elementFromPoint(x, y); const s = e && e.closest && e.closest('.sq'); return s ? s.dataset.sq : null; }
+function pieceAt(n) { const [r,c]=sqRC(n); return currentBoard()[r][c]; }
+function ownPiece(n) { const p = pieceAt(n); return p && ((p===p.toUpperCase()) === (game.turn()==='w')); }
+
+$('board').addEventListener('pointerdown', e => {
+  const n = sqAt(e.clientX, e.clientY); if (!n) return;
+  e.preventDefault();
+  if (editing) { const [r,c]=sqRC(n); editBoard[r][c] = selPiece==='x' ? '' : (editBoard[r][c]===selPiece ? '' : selPiece); render(); return; }
+  if (game.game_over()) return;
+  if (selected && selected!==n && !ownPiece(n)) { tryMove(selected, n); return; }
+  if (!ownPiece(n)) { selected = null; render(); return; }
+  selected = n; render();
+  drag = { from:n, x0:e.clientX, y0:e.clientY, moved:false };
+  const p = pieceAt(n);
+  ghost.className = p===p.toUpperCase() ? 'pw' : 'pb'; ghost.textContent = GLYPH[p.toLowerCase()];
+});
+window.addEventListener('pointermove', e => {
+  if (!drag) return;
+  if (!drag.moved && Math.hypot(e.clientX-drag.x0, e.clientY-drag.y0) < 6) return;
+  if (!drag.moved) { drag.moved = true; ghost.style.display='block'; const s = document.querySelector(`.sq[data-sq="${drag.from}"]`); if (s) s.classList.add('drag-src'); }
+  ghost.style.left = e.clientX+'px'; ghost.style.top = e.clientY+'px';
+});
+window.addEventListener('pointerup', e => {
+  if (!drag) return;
+  const d = drag; drag = null; ghost.style.display='none';
+  if (!d.moved) return; // nur angetippt -> Auswahl bleibt
+  const to = sqAt(e.clientX, e.clientY);
+  if (to && to!==d.from) tryMove(d.from, to); else render();
+});
+window.addEventListener('pointercancel', () => { drag = null; ghost.style.display='none'; render(); });
+
+function tryMove(from, to) {
+  const m = game.move({ from, to, promotion:'q' });
+  selected = null;
+  if (!m) { status('Kein legaler Zug.'); render(); return; }
+  status('');
+  afterChange();
+}
+function afterChange() { bestArrow = null; render(); updateInfo(); analyze(); }
+
+function updateInfo(text) {
+  const info = $('info');
+  if (editing) { info.innerHTML = 'Bearbeiten-Modus: Stellung aufbauen.'; return; }
+  const who = game.turn()==='w' ? 'Weiß' : 'Schwarz';
+  if (game.in_checkmate()) { info.innerHTML = `<b>Schachmatt!</b> ${game.turn()===mySide() ? 'Du hast verloren.' : 'Du hast gewonnen 🎉'}`; return; }
+  if (game.in_draw() || game.in_stalemate()) { info.innerHTML = '<b>Remis.</b>'; return; }
+  if (game.turn() !== mySide()) { info.innerHTML = `Gegner (${who}) ist am Zug – zieh seinen Zug auf dem Brett.` + (game.in_check()?' <b>Schach!</b>':''); return; }
+  info.innerHTML = text || 'Stockfish rechnet…';
+}
+
+// ---------- Stockfish ----------
+let engine = null, busy = false, wantFen = null, curFen = null, best = null;
+function getEngine() {
+  if (engine) return engine;
+  engine = new Worker(URL.createObjectURL(new Blob([window.STOCKFISH_SRC], { type:'application/javascript' })));
+  engine.onmessage = e => onEngine(String(e.data));
+  engine.postMessage('uci');
+  return engine;
+}
+function analyze() {
+  wantFen = (!editing && !game.game_over() && game.turn()===mySide()) ? game.fen() : null;
+  if (busy) getEngine().postMessage('stop'); else kick();
+}
+function kick() {
+  if (!wantFen) return;
+  curFen = wantFen; wantFen = null; busy = true; best = null;
+  const e = getEngine();
+  e.postMessage('position fen ' + curFen);
+  e.postMessage('go movetime ' + $('think').value);
+}
+function showBest(final) {
+  if (!best || curFen !== game.fen() || editing) return;
+  const uci = best.pv[0];
+  bestArrow = { from:uci.slice(0,2), to:uci.slice(2,4) };
+  drawArrow();
+  const t = new Chess(curFen); const m = t.move({ from:bestArrow.from, to:bestArrow.to, promotion: uci[4] || 'q' });
+  const sc = best.mate !== undefined ? (best.mate>0 ? `Matt in ${best.mate}` : `wirst matt in ${-best.mate}`) : ((best.cp>0?'+':'') + (best.cp/100).toFixed(2));
+  updateInfo(`${final ? 'Bester Zug' : 'Bester Zug (rechnet noch…)'}: <span class="best">${m ? m.san : uci}</span> &nbsp;<small>Bewertung für dich: ${sc}</small>`);
+}
+function onEngine(msg) {
+  if (msg.startsWith('info') && msg.includes(' pv ')) {
+    const t = msg.split(' '); const g = k => t[t.indexOf(k)+1];
+    best = { pv: t.slice(t.indexOf('pv')+1) };
+    if (t.includes('mate')) best.mate = +g('mate'); else best.cp = +g('cp');
+    showBest(false);
+  } else if (msg.startsWith('bestmove')) {
+    busy = false;
+    if (wantFen) kick(); else showBest(true);
+  }
+}
+
+// ---------- Buttons ----------
+$('btnUndo').onclick = () => { if (editing) return; game.undo(); selected=null; afterChange(); };
+$('btnNew').onclick = () => { setEditing(false, true); game.reset(); selected=null; afterChange(); };
+$('btnEdit').onclick = () => setEditing(!editing);
+$('btnClear').onclick = () => { editBoard = fenToBoard('8/8/8/8/8/8/8/8'); render(); };
+$('side').onchange = () => { selected=null; afterChange(); };
+$('think').onchange = () => afterChange();
+function setEditing(on, force) {
+  if (on === editing) return;
+  if (on) { editBoard = fenToBoard(game.fen()); $('turn').value = game.turn(); }
+  else if (!force) { const err = loadPosition(editBoard, $('turn').value); if (err) { status(err); return; } status(''); }
+  editing = on;
+  document.body.classList.toggle('edit', on);
+  $('btnEdit').classList.toggle('on', on);
+  $('btnEdit').textContent = on ? '✔ Fertig – spielen' : '✎ Bearbeiten';
+  selected = null; afterChange();
 }
 
 // ---------- Bild laden & Brett-Ausschnitt wählen ----------
-let img = null, crop = null; // crop in Bildkoordinaten {x,y,w,h}
+let img = null, crop = null;
 const cv = $('imgCanvas'), ctx = cv.getContext('2d', { willReadFrequently:true });
-
 function loadImageFile(file) {
   if (!file || !file.type.startsWith('image/')) return;
-  const url = URL.createObjectURL(file);
   const im = new Image();
-  im.onload = () => { img = im; crop = null; cv.width = im.naturalWidth; cv.height = im.naturalHeight; cv.style.display='block'; $('dropText').style.display='none'; drawImage(); status('Bild geladen. Brett markieren, dann „Stellung erkennen“.'); };
-  im.src = url;
+  im.onload = () => { img = im; crop = null; cv.width = im.naturalWidth; cv.height = im.naturalHeight; cv.style.display='block'; $('dropText').style.display='none'; drawImage(); status('Bild geladen. Quadrat um das Brett ziehen.'); };
+  im.src = URL.createObjectURL(file);
 }
 function drawImage() {
   if (!img) return;
@@ -205,7 +331,6 @@ cv.addEventListener('pointerdown', e => { dragStart = evPos(e); cv.setPointerCap
 cv.addEventListener('pointermove', e => {
   if (!dragStart) return;
   const [x,y] = evPos(e);
-  // quadratisch halten (Schachbrett!)
   const s = Math.max(Math.abs(x-dragStart[0]), Math.abs(y-dragStart[1]));
   crop = { x: x<dragStart[0] ? dragStart[0]-s : dragStart[0], y: y<dragStart[1] ? dragStart[1]-s : dragStart[1], w:s, h:s };
   drawImage();
@@ -217,13 +342,11 @@ drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add(
 drop.addEventListener('dragleave', () => drop.classList.remove('over'));
 drop.addEventListener('drop', e => { e.preventDefault(); drop.classList.remove('over'); loadImageFile(e.dataTransfer.files[0]); });
 document.addEventListener('paste', e => { for (const it of e.clipboardData.items) if (it.type.startsWith('image/')) loadImageFile(it.getAsFile()); });
-drop.addEventListener('dblclick', () => $('file').click());
 
 // ---------- Figurenerkennung (Vorlagen-Abgleich) ----------
-// Jedes Feld wird auf N×N verkleinert. Die Feldfarbe (Hintergrund) wird aus dem Rand geschätzt
-// und herausgerechnet, damit dieselbe Figur auf hellem und dunklem Feld gleich aussieht.
 const N = 24;
-let templates = JSON.parse(localStorage.getItem('sbz_templates') || '[]'); // [{p, f:[...]}]
+let templates = [];
+try { templates = JSON.parse(localStorage.getItem('sbz_templates') || '[]'); } catch(e) {}
 
 function squareFeatures() {
   if (!img) throw new Error('Bitte zuerst ein Bild laden.');
@@ -233,15 +356,14 @@ function squareFeatures() {
   t.imageSmoothingQuality = 'high';
   t.drawImage(img, c.x, c.y, c.w, c.h, 0, 0, N*8, N*8);
   const data = t.getImageData(0,0,N*8,N*8).data;
-  const out = []; // out[i][j] = Merkmal für Bildfeld Zeile i, Spalte j (von oben links)
+  const out = [];
   for (let i=0;i<8;i++) { out.push([]); for (let j=0;j<8;j++) {
     const px = (x,y) => { const k = ((i*N+y)*N*8 + j*N+x)*4; return [data[k],data[k+1],data[k+2]]; };
-    // Hintergrund = Median der Randpixel (Innenrand, 1 Pixel eingerückt)
     const ring = [];
-    for (let a=1;a<N-1;a++) { ring.push(px(a,1), px(a,N-2), px(1,a), px(N-2,a)); }
+    for (let a=1;a<N-1;a++) ring.push(px(a,1), px(a,N-2), px(1,a), px(N-2,a));
     const med = ch => { const v = ring.map(p=>p[ch]).sort((a,b)=>a-b); return v[v.length>>1]; };
     const bg = [med(0),med(1),med(2)];
-    const f = new Float32Array(N*N*2); let mass = 0;
+    const f = new Array(N*N*2); let mass = 0;
     for (let y=0;y<N;y++) for (let x=0;x<N;x++) {
       const p = px(x,y);
       const d = Math.hypot(p[0]-bg[0], p[1]-bg[1], p[2]-bg[2]);
@@ -249,122 +371,56 @@ function squareFeatures() {
       const lum = (0.299*p[0]+0.587*p[1]+0.114*p[2])/255;
       f[2*(y*N+x)] = m; f[2*(y*N+x)+1] = m * lum * 1.5; mass += m;
     }
-    out[i].push({ f: Array.from(f), mass: mass/(N*N) });
+    out[i].push({ f, mass: mass/(N*N) });
   } }
   return out;
 }
-// Bildfeld (i,j) -> Brettfeld (r,c), abhängig davon, wer unten ist
-const imgToBoard = (i,j) => $('orient').value==='w' ? [i,j] : [7-i,7-j];
-
+const imgToBoard = (i,j) => mySide()==='w' ? [i,j] : [7-i,7-j];
 function dist(a,b) { let s=0; for (let k=0;k<a.length;k++) { const d=a[k]-b[k]; s+=d*d; } return s; }
 function learnFrom(labelBoard) {
   const feats = squareFeatures();
-  let added = 0;
-  for (let i=0;i<8;i++) for (let j=0;j<8;j++) {
-    const [r,c] = imgToBoard(i,j); const p = labelBoard[r][c];
-    templates.push({ p: p || '.', f: feats[i][j].f }); added++;
-  }
-  // Pro Figurentyp höchstens 24 Vorlagen behalten (neueste)
+  for (let i=0;i<8;i++) for (let j=0;j<8;j++) { const [r,c] = imgToBoard(i,j); templates.push({ p: labelBoard[r][c] || '.', f: feats[i][j].f }); }
   const byP = {}; for (const t of templates) (byP[t.p] ||= []).push(t);
   templates = Object.values(byP).flatMap(a => a.slice(-24));
   try { localStorage.setItem('sbz_templates', JSON.stringify(templates)); } catch(e) {}
   updateTplInfo();
-  return added;
 }
 function recognize() {
-  if (!templates.length) throw new Error('Noch nichts gelernt: Erst einen Screenshot der Grundstellung laden und „Als Grundstellung lernen“ klicken.');
+  if (!templates.length) throw new Error('Noch nichts gelernt: Erst einen Screenshot der Grundstellung laden und „Als Grundstellung lernen“ tippen.');
   const feats = squareFeatures();
   const b = Array.from({length:8}, () => Array(8).fill(''));
   for (let i=0;i<8;i++) for (let j=0;j<8;j++) {
-    const ft = feats[i][j]; let best = null, bd = Infinity;
-    if (ft.mass < 0.02) { best = '.'; }
-    else for (const t of templates) { const d = dist(ft.f, t.f); if (d < bd) { bd = d; best = t.p; } }
-    const [r,c] = imgToBoard(i,j); b[r][c] = best==='.' ? '' : best;
+    const ft = feats[i][j]; let bestP = '.', bd = Infinity;
+    if (ft.mass >= 0.02) for (const t of templates) { const d = dist(ft.f, t.f); if (d < bd) { bd = d; bestP = t.p; } }
+    const [r,c] = imgToBoard(i,j); b[r][c] = bestP==='.' ? '' : bestP;
   }
   return b;
 }
 function updateTplInfo() {
-  const n = new Set(templates.map(t=>t.p)).size;
-  $('tplInfo').textContent = templates.length ? `Gelernt: ${templates.length} Feld-Vorlagen (${n} Typen). ` : 'Noch keine Vorlagen gelernt.';
-  if (templates.length) { const b = document.createElement('button'); b.textContent='Vorlagen löschen'; b.onclick=()=>{ templates=[]; localStorage.removeItem('sbz_templates'); updateTplInfo(); }; $('tplInfo').appendChild(b); }
+  const el = $('tplInfo');
+  el.textContent = templates.length ? `Gelernt: ${templates.length} Feld-Vorlagen. ` : 'Noch keine Vorlagen gelernt.';
+  if (templates.length) { const b = document.createElement('button'); b.textContent='Vorlagen löschen'; b.onclick=()=>{ templates=[]; try { localStorage.removeItem('sbz_templates'); } catch(e) {} updateTplInfo(); }; el.appendChild(b); }
 }
-
-$('btnCalib').onclick = () => { try { learnFrom(fenToBoard(START_FEN)); board = fenToBoard(START_FEN); viewFlip = $('orient').value==='b'; changed(); status('Grundstellung gelernt ✔ Jetzt kannst du andere Stellungen mit demselben Brett-Design laden.'); } catch(e) { status(e.message); } };
+$('btnCalib').onclick = () => {
+  try { learnFrom(fenToBoard(START_FEN)); setEditing(false, true); game.reset(); afterChange(); status('Grundstellung gelernt ✔ Jetzt einen Screenshot einer Stellung laden und „Stellung erkennen“.'); }
+  catch(e) { status(e.message); }
+};
 $('btnRecog').onclick = () => {
-  try {
-    board = recognize(); viewFlip = $('orient').value==='b';
-    $('turn').value = $('orient').value; // meistens ist der unten Sitzende am Zug
-    changed();
-    const kw = board.flat().filter(p=>p==='K').length, kb = board.flat().filter(p=>p==='k').length;
-    status(kw===1 && kb===1 ? 'Stellung erkannt ✔ Prüfen, „Am Zug“ setzen und berechnen.' : 'Achtung: Könige nicht eindeutig erkannt – bitte Brett rechts korrigieren.');
-  } catch(e) { status(e.message); }
-};
-$('btnLearn').onclick = () => { try { learnFrom(board); status('Korrigiertes Brett gelernt ✔'); } catch(e) { status(e.message); } };
-$('btnStart').onclick = () => { board = fenToBoard(START_FEN); changed(); };
-$('btnClear').onclick = () => { board = fenToBoard('8/8/8/8/8/8/8/8'); changed(); };
-$('btnFlip').onclick = () => { viewFlip = !viewFlip; renderBoard(); };
-$('turn').onchange = changed;
-$('fen').onchange = () => { try { const parts = $('fen').value.trim().split(/\s+/); board = fenToBoard(parts[0]); if (parts[1]) $('turn').value = parts[1]; changed(); } catch(e) { status('FEN ungültig'); } };
-
-// ---------- Stockfish ----------
-let engine = null, lines = {}, searching = false;
-function getEngine() {
-  if (engine) return engine;
-  const blob = new Blob([window.STOCKFISH_SRC], { type:'application/javascript' });
-  engine = new Worker(URL.createObjectURL(blob));
-  engine.onmessage = e => onEngine(String(e.data));
-  engine.postMessage('uci');
-  engine.postMessage('setoption name MultiPV value 3');
-  return engine;
-}
-function fmtScore(l) {
-  // Bewertung aus Sicht von Weiß
-  const sign = $('turn').value==='w' ? 1 : -1;
-  if (l.mate !== undefined) { const m = l.mate*sign; return (m>0?'#':'#-') + Math.abs(m); }
-  const v = l.cp*sign/100; return (v>0?'+':'') + v.toFixed(2);
-}
-function moveText(uci) {
-  const [r,c] = sqFromName(uci.slice(0,2)); const p = board[r][c];
-  const promo = uci[4] ? ' =' + GLYPH[uci[4]] : '';
-  return `${p ? GLYPH[p.toLowerCase()] : ''} ${uci.slice(0,2)} → ${uci.slice(2,4)}${promo}`;
-}
-function showLines(final) {
-  const ls = Object.keys(lines).sort().map(k=>lines[k]);
-  if (!ls.length) return;
-  arrows = ls.slice(0,3).map((l,i)=>({ from:l.pv[0].slice(0,2), to:l.pv[0].slice(2,4), i }));
-  drawArrows();
-  const b = ls[0];
-  $('result').innerHTML = `${final?'Bester Zug':'Rechne… bisher bester Zug'} (Tiefe ${b.depth}):<br><span class="best">${moveText(b.pv[0])}</span> &nbsp; Bewertung: <b>${fmtScore(b)}</b>`;
-  $('lines').textContent = ls.map((l,i)=>`${i+1}. [${fmtScore(l)}] ${l.pv.slice(0,10).join(' ')}`).join('\n');
-}
-function onEngine(msg) {
-  if (msg.startsWith('info') && msg.includes(' pv ')) {
-    const t = msg.split(' ');
-    const g = k => t[t.indexOf(k)+1];
-    const l = { depth:+g('depth'), pv: t.slice(t.indexOf('pv')+1) };
-    const mpv = t.includes('multipv') ? +g('multipv') : 1;
-    if (t.includes('mate')) l.mate = +g('mate'); else l.cp = +g('cp');
-    lines[mpv] = l;
-    if (mpv===1) showLines(false);
-  } else if (msg.startsWith('bestmove')) {
-    searching = false; $('btnGo').disabled = false;
-    if (msg.includes('(none)')) { $('result').innerHTML = 'Kein legaler Zug – Matt oder Patt.'; arrows=[]; drawArrows(); }
-    else showLines(true);
+  let b; try { b = recognize(); } catch(e) { status(e.message); return; }
+  const err = loadPosition(b, mySide());
+  if (err) { // in den Bearbeiten-Modus, damit man korrigieren kann
+    setEditing(true);
+    editBoard = b; $('turn').value = mySide(); render();
+    status('Erkannt, aber: ' + err + ' Bitte korrigieren und „Fertig – spielen“ tippen.');
+    return;
   }
-}
-$('btnGo').onclick = () => {
-  const flat = board.flat();
-  if (flat.filter(p=>p==='K').length!==1 || flat.filter(p=>p==='k').length!==1) { status('Jede Seite braucht genau einen König.'); return; }
-  status('');
-  const e = getEngine(); lines = {}; searching = true; $('btnGo').disabled = true;
-  $('result').textContent = 'Stockfish rechnet…'; $('lines').textContent='';
-  e.postMessage('stop'); e.postMessage('ucinewgame');
-  e.postMessage('position fen ' + fullFen());
-  e.postMessage('go depth ' + Math.min(30, Math.max(1, +$('depth').value || 18)));
+  setEditing(false, true);
+  selected = null; status('Stellung erkannt ✔ Du bist am Zug.'); afterChange();
 };
-$('btnStop').onclick = () => { if (engine && searching) engine.postMessage('stop'); };
+$('btnLearn').onclick = () => { try { learnFrom(editBoard || fenToBoard(game.fen())); status('Korrigiertes Brett gelernt ✔'); } catch(e) { status(e.message); } };
 
-renderPalette(); renderBoard(); updateTplInfo();
+renderPalette(); afterChange(); updateTplInfo();
+}
 </script>
 </body>
 </html>
