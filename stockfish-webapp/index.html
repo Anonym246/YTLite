@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Stockfish 19 – Web Analyse</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header>
+    <h1>♞ Stockfish 19 <span>Web Analyse</span></h1>
+    <div class="modes">
+      <button id="modeAnalysis" class="mode-btn" data-for="analysis">Analyse</button>
+      <button id="modePlay" class="mode-btn" data-for="play">Gegen Stockfish spielen</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="board-wrap">
+      <div id="evalbar" title="Bewertung aus Sicht von Weiß">
+        <div id="evalWhite"></div>
+        <span id="evalText"></span>
+      </div>
+      <div id="board"></div>
+    </section>
+
+    <section class="panel">
+      <div class="card">
+        <div id="status">Weiß am Zug</div>
+        <div class="nav">
+          <button id="first" title="Anfang (Pos1)">⏮</button>
+          <button id="prev" title="Zurück (←)">◀</button>
+          <button id="next" title="Vor (→)">▶</button>
+          <button id="last" title="Ende (Ende)">⏭</button>
+          <button id="undo" title="Zug zurücknehmen">↶ Zurück</button>
+          <button id="flip" title="Brett drehen (F)">⇅ Drehen</button>
+        </div>
+      </div>
+
+      <div class="card play-only">
+        <h2>Partie gegen Stockfish</h2>
+        <label>Deine Farbe
+          <select id="color">
+            <option value="w">Weiß</option>
+            <option value="b">Schwarz</option>
+            <option value="random">Zufall</option>
+          </select>
+        </label>
+        <label>Spielstärke (Elo): <b id="eloVal">1500</b>
+          <input id="elo" type="range" min="1320" max="3190" step="10" value="1500">
+        </label>
+        <label>Bedenkzeit pro Zug: <b id="movetimeVal">1000 ms</b>
+          <input id="movetime" type="range" min="100" max="10000" step="100" value="1000">
+        </label>
+        <button id="newGame" class="primary">Neue Partie</button>
+      </div>
+
+      <div class="card analysis-only">
+        <h2>Engine <small id="engineName">wird geladen …</small></h2>
+        <div id="lines"></div>
+        <div id="engineInfo" class="muted"></div>
+        <details>
+          <summary>Einstellungen</summary>
+          <label>Engine
+            <select id="engineSelect"></select>
+          </label>
+          <label>Linien (MultiPV): <b id="multipvVal">3</b>
+            <input id="multipv" type="range" min="1" max="5" value="3">
+          </label>
+          <label>Max. Tiefe: <b id="depthVal">22</b>
+            <input id="depth" type="range" min="8" max="40" value="22">
+          </label>
+          <label class="check"><input id="showArrows" type="checkbox" checked> Pfeile auf dem Brett</label>
+        </details>
+      </div>
+
+      <div class="card">
+        <h2>Züge</h2>
+        <ol id="moves"></ol>
+      </div>
+
+      <div class="card">
+        <h2>FEN / PGN</h2>
+        <div class="row">
+          <input id="fen" spellcheck="false" aria-label="FEN">
+          <button id="loadFen">Laden</button>
+          <button id="copyFen" title="FEN kopieren">⧉</button>
+        </div>
+        <textarea id="pgn" rows="4" spellcheck="false" placeholder="PGN hier einfügen (z. B. aus einer beendeten Partie) …"></textarea>
+        <div class="row">
+          <button id="importPgn">PGN importieren</button>
+          <button id="exportPgn">PGN exportieren</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="promo">
+    <p>Umwandeln in:</p>
+    <div class="choices"></div>
+  </dialog>
+
+  <footer>
+    Engine: <a href="https://github.com/official-stockfish/Stockfish">Stockfish 19</a> (GPLv3) via
+    <a href="https://github.com/nmrugg/stockfish.js">stockfish.js</a> ·
+    Regeln: <a href="https://github.com/jhlywa/chess.js">chess.js</a> (BSD-2)
+  </footer>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
