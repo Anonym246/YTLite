@@ -1,17 +1,17 @@
-# Schach-Bestzug
+# Bestzug
 
-Kleine Offline-Web-App: Screenshot vom Schachbrett rein → Stellung wird erkannt → **Stockfish** zeigt den besten Zug (mit Pfeil und Top-3-Varianten).
+Kleine Offline-Web-App: Du trägst die Züge deiner Partie ein, und wenn du am Zug bist, zeigt dir **Stockfish** den besten Zug als Pfeil.
 
 ## Starten
-`index.html` per Doppelklick im Browser öffnen. Kein Server und kein Internet nötig, Stockfish 10 steckt in `stockfish-src.js`.
+`index.html` im Browser öffnen. Es braucht keinen Server und kein Internet, Stockfish 10 steckt in `stockfish-src.js`.
 
 ## Benutzung
-1. **Einmalig kalibrieren:** Screenshot der Grundstellung von deiner Schachseite (chess.com, lichess …) laden, Rechteck um die 64 Felder ziehen, auf **„Als Grundstellung lernen“** klicken.
-2. **Stellung erkennen:** Screenshot der aktuellen Stellung laden (Datei, Drag & Drop oder Strg+V), Brett markieren, auf **„Stellung erkennen“** klicken.
-3. Falls nötig: Brett rechts korrigieren und **„Korrigiertes Brett lernen“** klicken (verbessert die Erkennung).
-4. Weiterspielen: Unter **„Ich spiele“** deine Farbe wählen. Wenn du am Zug bist, zeigt ein grüner Pfeil den besten Zug. Du ziehst deine Züge und die des Gegners per Drag & Drop (oder Figur und Zielfeld antippen).
+1. Farbe wählen (Weiß/Schwarz) → **Los geht's**. Das Brett steht immer mit deiner Farbe unten.
+2. Züge eintragen: ins Feld tippen (`e4`, `Sf3`, `exd5`, `O-O`, deutsch oder englisch) oder direkt auf dem Brett ziehen.
+3. Bist du dran, zeigt der blaue Pfeil den besten Zug. Mit **Zug ausführen** spielst du ihn direkt.
+4. Mit **Zurück** nimmst du Züge zurück. Die Partie bleibt nach dem Neuladen erhalten.
 
-Die gelernten Vorlagen werden im Browser gespeichert (localStorage). Sie gelten immer für ein Brett-/Figuren-Design.
-
-## Lizenz
-chess.js (Zugregeln) ist BSD-lizenziert (Header in `chess.js`). Stockfish ist GPL-3.0 (siehe `STOCKFISH-LICENSE.txt`, Quelle: github.com/niklasf/stockfish.js).
+## Lizenzen
+- Stockfish: GPL-3.0 (`STOCKFISH-LICENSE.txt`, github.com/niklasf/stockfish.js)
+- chess.js: BSD (Header in `chess.js`)
+- Figuren: cburnett-Set von Colin M.L. Burnett, CC BY-SA 3.0
